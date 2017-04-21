@@ -8,31 +8,31 @@ namespace SSISTests.TestInfrastructure
 {
     public static class PackageRunner
     {
-        public static bool Run(string packResourceFileName, object parameters, bool loggingEnabled = false)
+        public static bool Run(string packResourceFileName, object parameters)
         {
-            return Run(packResourceFileName, new object(), parameters, loggingEnabled);
+            return Run(packResourceFileName, new object(), parameters);
         }
 
-        public static bool Run(string packResourceFileName, object variables, object parameters, bool loggingEnabled)
+        public static bool Run(string packResourceFileName, object variables, object parameters)
         {
             var packageFile = new FileInfo(Path.Combine(Path.GetTempPath(), packResourceFileName));
             typeof(PackageRunner).Assembly.GetResource(packResourceFileName).SaveToDisk(packageFile.FullName);
             try
             {
-                return Run(packageFile, variables, parameters, loggingEnabled);
+                return Run(packageFile, variables, parameters);
             }
             finally
             {
                 packageFile.Delete();
             }
         }
-        public static bool Run(FileInfo packageFile, object variables, object parameters, bool loggingEnabled)
+        public static bool Run(FileInfo packageFile, object variables, object parameters)
         {
             var variablesDictionary = variables?.GetType().GetProperties().ToDictionary(property => property.Name, property => property.GetValue(variables)) ?? new Dictionary<string, object>();
             var parametersDictionary = parameters?.GetType().GetProperties().ToDictionary(property => property.Name, property => property.GetValue(parameters)) ?? new Dictionary<string, object>();
-            return Run(packageFile, variablesDictionary, parametersDictionary, loggingEnabled);
+            return Run(packageFile, variablesDictionary, parametersDictionary);
         }
-        public static bool Run(FileInfo packageFile, IDictionary<string, object> variables, IDictionary<string, object> parameters, bool loggingEnabled)
+        public static bool Run(FileInfo packageFile, IDictionary<string, object> variables, IDictionary<string, object> parameters)
         {
             var application = new Application();
 
@@ -49,20 +49,7 @@ namespace SSISTests.TestInfrastructure
                 {
                     package.Parameters[parameter.Key].Value = parameter.Value;
                 }
-
-                if (loggingEnabled)
-                {
-                    var loggingConnection = package.Connections.Add("FILE");
-                    loggingConnection.ConnectionString = Path.Combine(packageFile.DirectoryName, Path.GetFileNameWithoutExtension(packageFile.Name) + @"-Log.txt");
-
-                    var provider = package.LogProviders.Add("DTS.LogProviderTextFile");
-                    provider.ConfigString = loggingConnection.Name;
-                    package.LoggingOptions.SelectedLogProviders.Add(provider);
-                    package.LoggingOptions.EventFilterKind = DTSEventFilterKind.Inclusion;
-                    package.LoggingOptions.EventFilter = new[] { "OnPreExecute", "OnPostExecute", "OnError", "OnWarning", "OnInformation" };
-                    package.LoggingMode = DTSLoggingMode.Enabled;
-                }
-
+                
                 var result = package.Execute();
 
 
